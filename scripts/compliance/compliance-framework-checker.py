@@ -211,6 +211,138 @@ class ComplianceChecker:
 
         return {'framework': 'PCI-DSS', 'requirements_checked': len(requirements)}
 
+    def check_soc2(self) -> Dict:
+        """
+        Check SOC 2 Trust Service Criteria
+
+        Reference: https://us.aicpa.org/interestareas/frc/assuranceadvisoryservices/aicpasoc2report
+        """
+        print(f"\n[*] Checking SOC 2 Trust Service Criteria")
+
+        criteria = [
+            {
+                'id': 'CC1.1',
+                'category': 'Control Environment',
+                'criterion': 'Demonstrates commitment to integrity and ethical values',
+                'check': self._check_security_policies
+            },
+            {
+                'id': 'CC6.1',
+                'category': 'Logical and Physical Access',
+                'criterion': 'Restricts logical and physical access',
+                'check': self._check_access_control
+            },
+            {
+                'id': 'CC6.6',
+                'category': 'Encryption',
+                'criterion': 'Protects data in transmission and at rest',
+                'check': self._check_encryption_at_rest
+            },
+            {
+                'id': 'CC7.2',
+                'category': 'System Monitoring',
+                'criterion': 'Monitors system components',
+                'check': self._check_network_monitoring
+            },
+            {
+                'id': 'A1.2',
+                'category': 'Availability',
+                'criterion': 'Environmental protections and recovery infrastructure',
+                'check': self._check_recovery_plan
+            },
+            {
+                'id': 'P3.2',
+                'category': 'Privacy',
+                'criterion': 'Access controls for privacy',
+                'check': self._check_access_control
+            }
+        ]
+
+        for criterion in criteria:
+            result = criterion['check']()
+            self.add_control_result(
+                control_id=criterion['id'],
+                control_name=criterion['criterion'],
+                category=criterion['category'],
+                status=result['status'],
+                details=result.get('details', ''),
+                reference='SOC 2 Trust Service Criteria'
+            )
+
+        return {'framework': 'SOC 2', 'criteria_checked': len(criteria)}
+
+    def check_hipaa(self) -> Dict:
+        """
+        Check HIPAA Security Rule requirements
+
+        Reference: https://www.hhs.gov/hipaa/for-professionals/security/
+        """
+        print(f"\n[*] Checking HIPAA Security Rule Requirements")
+
+        safeguards = [
+            {
+                'id': 'HIPAA-164.308(a)(1)',
+                'category': 'Administrative Safeguards',
+                'safeguard': 'Security Management Process - Risk Analysis',
+                'check': self._check_security_policies
+            },
+            {
+                'id': 'HIPAA-164.308(a)(3)',
+                'category': 'Administrative Safeguards',
+                'safeguard': 'Workforce Security - Authorization/Supervision',
+                'check': self._check_access_control
+            },
+            {
+                'id': 'HIPAA-164.308(a)(6)',
+                'category': 'Administrative Safeguards',
+                'safeguard': 'Security Incident Procedures',
+                'check': self._check_incident_response
+            },
+            {
+                'id': 'HIPAA-164.310(a)(1)',
+                'category': 'Physical Safeguards',
+                'safeguard': 'Facility Access Controls',
+                'check': self._check_physical_security
+            },
+            {
+                'id': 'HIPAA-164.312(a)(1)',
+                'category': 'Technical Safeguards',
+                'safeguard': 'Access Control - Unique User Identification',
+                'check': self._check_access_control
+            },
+            {
+                'id': 'HIPAA-164.312(a)(2)(iv)',
+                'category': 'Technical Safeguards',
+                'safeguard': 'Encryption and Decryption',
+                'check': self._check_encryption_at_rest
+            },
+            {
+                'id': 'HIPAA-164.312(b)',
+                'category': 'Technical Safeguards',
+                'safeguard': 'Audit Controls',
+                'check': self._check_audit_logging
+            },
+            {
+                'id': 'HIPAA-164.312(e)(1)',
+                'category': 'Technical Safeguards',
+                'safeguard': 'Transmission Security',
+                'check': self._check_transmission_security
+            }
+        ]
+
+        for safeguard in safeguards:
+            result = safeguard['check']()
+            self.add_control_result(
+                control_id=safeguard['id'],
+                control_name=safeguard['safeguard'],
+                category=safeguard['category'],
+                status=result['status'],
+                details=result.get('details', ''),
+                reference='HIPAA Security Rule'
+            )
+
+        return {'framework': 'HIPAA', 'safeguards_checked': len(safeguards)}
+
     # Control Check Methods
     def _check_asset_inventory(self) -> Dict:
         """Check if asset inventory exists"""
@@ -378,6 +510,48 @@ class ComplianceChecker:
             'details': 'Requires manual configuration review'
         }
 
+    def _check_security_policies(self) -> Dict:
+        """Check for security policy documentation"""
+        policy_docs = ['security-policy.md', 'security-policy.pdf', 'policies/security.md']
+
+        for doc in policy_docs:
+            if Path(doc).exists():
+                return {
+                    'status': 'COMPLIANT',
+                    'details': f'Security policy documentation found: {doc}'
+                }
+
+        return {
+            'status': 'NON_COMPLIANT',
+            'details': 'No security policy documentation found'
+        }
+
+    def _check_physical_security(self) -> Dict:
+        """Check physical security controls"""
+        return {
+            'status': 'NOT_APPLICABLE',
+            'details': 'Physical security requires on-site inspection'
+        }
+
+    def _check_transmission_security(self) -> Dict:
+        """Check data transmission security"""
+        # Check for SSL/TLS configuration
+        try:
+            result = subprocess.run(['openssl', 'version'],
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                return {
+                    'status': 'COMPLIANT',
+                    'details': f'OpenSSL installed: {result.stdout.strip()}'
+                }
+        except:
+            pass
+
+        return {
+            'status': 'NOT_APPLICABLE',
+            'details': 'Manual review of transmission security required'
+        }
+
     def add_control_result(self, control_id: str, control_name: str,
                           category: str, status: str, details: str, reference: str):
         """Add control check result"""
@@ -531,14 +705,14 @@ def main():
     )
 
     parser.add_argument('--framework', required=True,
-                       choices=['NIST', 'CIS', 'PCI-DSS', 'ALL'],
+                       choices=['NIST', 'CIS', 'PCI-DSS', 'SOC2', 'HIPAA', 'ALL'],
                        help='Compliance framework to check')
     parser.add_argument('--output-dir', default='compliance_results',
                        help='Output directory for reports')
 
     args = parser.parse_args()
 
-    frameworks = ['NIST', 'CIS', 'PCI-DSS'] if args.framework == 'ALL' else [args.framework]
+    frameworks = ['NIST', 'CIS', 'PCI-DSS', 'SOC2', 'HIPAA'] if args.framework == 'ALL' else [args.framework]
 
     for framework in frameworks:
         checker = ComplianceChecker(framework, args.output_dir)
@@ -553,6 +727,10 @@ def main():
             checker.check_cis_controls()
         elif framework == 'PCI-DSS':
             checker.check_pci_dss()
+        elif framework == 'SOC2':
+            checker.check_soc2()
+        elif framework == 'HIPAA':
+            checker.check_hipaa()
 
         report_path = checker.generate_report()
         checker.print_summary()
